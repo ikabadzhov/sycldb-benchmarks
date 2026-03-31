@@ -1,0 +1,184 @@
+==PROF== Connected to process 2057183 (/media/ivan/SYCLDB/FULLENG/standalone/eug/q11_sycldbcoalesced)
+Device: NVIDIA L40S
+Table [LINEORDER] size: 600043265 rows (padded to 600043268)
+==PROF== Profiling "__acpp_sscp_kernel" - 0: 0%....50%....100% - 17 passes
+==PROF== Profiling "__acpp_sscp_kernel" - 1: 0%....50%....100% - 17 passes
+==PROF== Profiling "__acpp_sscp_kernel" - 2: 0%....50%....100% - 17 passes
+==PROF== Profiling "__acpp_sscp_kernel" - 3: 0%....50%....100% - 17 passes
+Iteration 0: 628.991 ms
+Execution time over 1 repetitions - Avg: 628.991 ms, StdDev: 0 ms
+Final result: 44683458181724
+==PROF== Disconnected from process 2057183
+[2057183] q11_sycldbcoalesced@127.0.0.1
+  void __acpp_sscp_kernel<basic_parallel_for<sycl::fill_kernel_usm<unsigned long>, 1>>(const T1 &) (1, 1, 1)x(128, 1, 1), Context 1, Stream 24, Device 0, CC 8.9
+    Section: GPU Speed Of Light Throughput
+    ----------------------- ----------- ------------
+    Metric Name             Metric Unit Metric Value
+    ----------------------- ----------- ------------
+    DRAM Frequency                  Ghz         8.85
+    SM Frequency                    Ghz         1.04
+    Elapsed Cycles                cycle         2743
+    Memory Throughput                 %         0.44
+    DRAM Throughput                   %         0.14
+    Duration                         us         2.62
+    L1/TEX Cache Throughput           %       187.46
+    L2 Cache Throughput               %         0.43
+    SM Active Cycles              cycle         6.40
+    Compute (SM) Throughput           %         0.00
+    ----------------------- ----------- ------------
+
+    OPT   This kernel grid is too small to fill the available resources on this device, resulting in only 0.0 full      
+          waves across all SMs. Look at Launch Statistics for more details.                                             
+
+    Section: GPU Speed Of Light Roofline Chart
+    INF   The ratio of peak float (fp32) to double (fp64) performance on this device is 64:1. The kernel achieved 0% of 
+          this device's fp32 peak performance and 0% of its fp64 peak performance. See the Kernel Profiling Guide       
+          (https://docs.nvidia.com/nsight-compute/ProfilingGuide/index.html#roofline) for more details on roofline      
+          analysis.                                                                                                     
+
+    Section: GPU and Memory Workload Distribution
+    -------------------------- ----------- ------------
+    Metric Name                Metric Unit Metric Value
+    -------------------------- ----------- ------------
+    Average DRAM Active Cycles       cycle           32
+    Total DRAM Elapsed Cycles        cycle       278528
+    Average L1 Active Cycles         cycle         6.40
+    Total L1 Elapsed Cycles          cycle       384642
+    Average L2 Active Cycles         cycle       106.58
+    Total L2 Elapsed Cycles          cycle       169200
+    Average SM Active Cycles         cycle         6.40
+    Total SM Elapsed Cycles          cycle       384642
+    Average SMSP Active Cycles       cycle         5.67
+    Total SMSP Elapsed Cycles        cycle      1538568
+    -------------------------- ----------- ------------
+
+  void __acpp_sscp_kernel<basic_parallel_for<Q11CoalescedKernel, 1>>(const T1 &) (1171960, 1, 1)x(128, 1, 1), Context 1, Stream 25, Device 0, CC 8.9
+    Section: GPU Speed Of Light Throughput
+    ----------------------- ----------- ------------
+    Metric Name             Metric Unit Metric Value
+    ----------------------- ----------- ------------
+    DRAM Frequency                  Ghz         8.99
+    SM Frequency                    Ghz         1.06
+    Elapsed Cycles                cycle     10673721
+    Memory Throughput                 %        60.37
+    DRAM Throughput                   %        60.37
+    Duration                         ms        10.02
+    L1/TEX Cache Throughput           %         8.42
+    L2 Cache Throughput               %        19.39
+    SM Active Cycles              cycle  10663965.81
+    Compute (SM) Throughput           %         8.70
+    ----------------------- ----------- ------------
+
+    OPT   Memory is more heavily utilized than Compute: Look at the Memory Workload Analysis section to identify the    
+          DRAM bottleneck. Check memory replay (coalescing) metrics to make sure you're efficiently utilizing the       
+          bytes transferred. Also consider whether it is possible to do more work per memory access (kernel fusion) or  
+          whether there are values you can (re)compute.                                                                 
+
+    Section: GPU Speed Of Light Roofline Chart
+    INF   The ratio of peak float (fp32) to double (fp64) performance on this device is 64:1. The kernel achieved 0% of 
+          this device's fp32 peak performance and 0% of its fp64 peak performance. See the Kernel Profiling Guide       
+          (https://docs.nvidia.com/nsight-compute/ProfilingGuide/index.html#roofline) for more details on roofline      
+          analysis.                                                                                                     
+
+    Section: GPU and Memory Workload Distribution
+    -------------------------- ----------- ------------
+    Metric Name                Metric Unit Metric Value
+    -------------------------- ----------- ------------
+    Average DRAM Active Cycles       cycle     54402856
+    Total DRAM Elapsed Cycles        cycle   1081441280
+    Average L1 Active Cycles         cycle  10663965.81
+    Total L1 Elapsed Cycles          cycle   1515189936
+    Average L2 Active Cycles         cycle  13687315.31
+    Total L2 Elapsed Cycles          cycle    657918000
+    Average SM Active Cycles         cycle  10663965.81
+    Total SM Elapsed Cycles          cycle   1515189936
+    Average SMSP Active Cycles       cycle  10662713.09
+    Total SMSP Elapsed Cycles        cycle   6060759744
+    -------------------------- ----------- ------------
+
+  void __acpp_sscp_kernel<basic_parallel_for<sycl::fill_kernel_usm<unsigned long>, 1>>(const T1 &) (1, 1, 1)x(128, 1, 1), Context 1, Stream 24, Device 0, CC 8.9
+    Section: GPU Speed Of Light Throughput
+    ----------------------- ----------- ------------
+    Metric Name             Metric Unit Metric Value
+    ----------------------- ----------- ------------
+    DRAM Frequency                  Ghz         8.79
+    SM Frequency                    Ghz         1.05
+    Elapsed Cycles                cycle         2814
+    Memory Throughput                 %         5.35
+    DRAM Throughput                   %         5.35
+    Duration                         us         2.69
+    L1/TEX Cache Throughput           %       193.20
+    L2 Cache Throughput               %         0.70
+    SM Active Cycles              cycle         6.21
+    Compute (SM) Throughput           %         0.00
+    ----------------------- ----------- ------------
+
+    OPT   This kernel grid is too small to fill the available resources on this device, resulting in only 0.0 full      
+          waves across all SMs. Look at Launch Statistics for more details.                                             
+
+    Section: GPU Speed Of Light Roofline Chart
+    INF   The ratio of peak float (fp32) to double (fp64) performance on this device is 64:1. The kernel achieved 0% of 
+          this device's fp32 peak performance and 0% of its fp64 peak performance. See the Kernel Profiling Guide       
+          (https://docs.nvidia.com/nsight-compute/ProfilingGuide/index.html#roofline) for more details on roofline      
+          analysis.                                                                                                     
+
+    Section: GPU and Memory Workload Distribution
+    -------------------------- ----------- ------------
+    Metric Name                Metric Unit Metric Value
+    -------------------------- ----------- ------------
+    Average DRAM Active Cycles       cycle      1265.33
+    Total DRAM Elapsed Cycles        cycle       283648
+    Average L1 Active Cycles         cycle         6.21
+    Total L1 Elapsed Cycles          cycle       405624
+    Average L2 Active Cycles         cycle        95.65
+    Total L2 Elapsed Cycles          cycle       173472
+    Average SM Active Cycles         cycle         6.21
+    Total SM Elapsed Cycles          cycle       405624
+    Average SMSP Active Cycles       cycle         5.48
+    Total SMSP Elapsed Cycles        cycle      1622496
+    -------------------------- ----------- ------------
+
+  void __acpp_sscp_kernel<basic_parallel_for<Q11CoalescedKernel, 1>>(const T1 &) (1171960, 1, 1)x(128, 1, 1), Context 1, Stream 25, Device 0, CC 8.9
+    Section: GPU Speed Of Light Throughput
+    ----------------------- ----------- ------------
+    Metric Name             Metric Unit Metric Value
+    ----------------------- ----------- ------------
+    DRAM Frequency                  Ghz         8.99
+    SM Frequency                    Ghz         1.06
+    Elapsed Cycles                cycle     10675274
+    Memory Throughput                 %        60.39
+    DRAM Throughput                   %        60.39
+    Duration                         ms        10.02
+    L1/TEX Cache Throughput           %         8.42
+    L2 Cache Throughput               %        19.39
+    SM Active Cycles              cycle  10663339.08
+    Compute (SM) Throughput           %         8.70
+    ----------------------- ----------- ------------
+
+    OPT   Memory is more heavily utilized than Compute: Look at the Memory Workload Analysis section to identify the    
+          DRAM bottleneck. Check memory replay (coalescing) metrics to make sure you're efficiently utilizing the       
+          bytes transferred. Also consider whether it is possible to do more work per memory access (kernel fusion) or  
+          whether there are values you can (re)compute.                                                                 
+
+    Section: GPU Speed Of Light Roofline Chart
+    INF   The ratio of peak float (fp32) to double (fp64) performance on this device is 64:1. The kernel achieved 0% of 
+          this device's fp32 peak performance and 0% of its fp64 peak performance. See the Kernel Profiling Guide       
+          (https://docs.nvidia.com/nsight-compute/ProfilingGuide/index.html#roofline) for more details on roofline      
+          analysis.                                                                                                     
+
+    Section: GPU and Memory Workload Distribution
+    -------------------------- ----------- ------------
+    Metric Name                Metric Unit Metric Value
+    -------------------------- ----------- ------------
+    Average DRAM Active Cycles       cycle  54434757.33
+    Total DRAM Elapsed Cycles        cycle   1081600000
+    Average L1 Active Cycles         cycle  10663339.08
+    Total L1 Elapsed Cycles          cycle   1515120444
+    Average L2 Active Cycles         cycle  13687452.12
+    Total L2 Elapsed Cycles          cycle    657932448
+    Average SM Active Cycles         cycle  10663339.08
+    Total SM Elapsed Cycles          cycle   1515120444
+    Average SMSP Active Cycles       cycle  10662068.55
+    Total SMSP Elapsed Cycles        cycle   6060481776
+    -------------------------- ----------- ------------
+
