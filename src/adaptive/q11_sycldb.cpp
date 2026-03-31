@@ -72,12 +72,18 @@ int main(int argc, char** argv) {
     q.fill(d_res, 0ULL, 1).wait();
     run_kernel(); // Warmup and JIT trigger
 
-    auto start = std::chrono::high_resolution_clock::now();
+    std::vector<double> times;
     for(int i=0; i<10; ++i) {
         q.fill(d_res, 0ULL, 1).wait();
+        auto start = std::chrono::high_resolution_clock::now();
         run_kernel();
+        auto end = std::chrono::high_resolution_clock::now();
+        times.push_back(std::chrono::duration<double, std::milli>(end - start).count());
     }
-    auto end = std::chrono::high_resolution_clock::now();
-    std::cout << "Avg: " << std::chrono::duration<double, std::milli>(end - start).count() / 10.0 << " ms" << std::endl;
+    double total = 0; for(auto t : times) total += t;
+    double avg = total / 10.0;
+    double var = 0; for(auto t : times) var += (t-avg)*(t-avg);
+    double stddev = std::sqrt(var/10.0);
+    std::cout << "Avg: " << avg << " ms, StdDev: " << stddev << " ms" << std::endl;
     return 0;
 }

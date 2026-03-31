@@ -48,19 +48,47 @@ void load_column(const std::string& path, T* ptr, size_t n) {
 }
 
 int main(int argc, char** argv) {
-    std::string ssb_path = "/media/ssb/s100_columnar"; sycl::queue q{sycl::default_selector_v};
-    size_t n = 600043265, n_part = 1400000, n_supp = 200000;
-    int *h_tmp = (int*)malloc(n*4);
-    int *d_lo_date = sycl::malloc_device<int>(n, q), *d_lo_part = sycl::malloc_device<int>(n, q), *d_lo_supp = sycl::malloc_device<int>(n, q), *d_lo_rev = sycl::malloc_device<int>(n, q);
-    load_column(ssb_path + "/LINEORDER5", h_tmp, n); q.memcpy(d_lo_date, h_tmp, n*4);
-    load_column(ssb_path + "/LINEORDER3", h_tmp, n); q.memcpy(d_lo_part, h_tmp, n*4);
-    load_column(ssb_path + "/LINEORDER4", h_tmp, n); q.memcpy(d_lo_supp, h_tmp, n*4);
-    load_column(ssb_path + "/LINEORDER12", h_tmp, n); q.memcpy(d_lo_rev, h_tmp, n*4).wait();
-    free(h_tmp);
+    int repetitions = 10;
+    std::string ssb_path = "/media/ssb/s100_columnar";
+    for (int i = 1; i < argc; ++i) {
+        std::string arg = argv[i];
+        if (arg == "-r" && i + 1 < argc) repetitions = std::stoi(argv[++i]);
+        else if (arg == "-p" && i + 1 < argc) ssb_path = argv[++i];
+    }
+    sycl::queue q{sycl::default_selector_v};
+    size_t n_fact = 600043265, n_part = 200000, n_supp = 2000, n_date = 2556;
 
-    bool *d_p_filter = sycl::malloc_device<bool>(n_part+1, q), *d_s_filter = sycl::malloc_device<bool>(n_supp+1, q);
-    int *d_year_map = sycl::malloc_device<int>(3000, q), *d_p_brand = sycl::malloc_device<int>(n_part+1, q);
-    q.fill(d_p_filter, true, n_part+1); q.fill(d_s_filter, true, n_supp+1); q.fill(d_year_map, 1992, 3000); q.fill(d_p_brand, 1, n_part+1).wait();
+    int *h_lo_date = (int*)malloc(n_fact * 4), *h_lo_part = (int*)malloc(n_fact * 4), *h_lo_supp = (int*)malloc(n_fact * 4), *h_lo_rev = (int*)malloc(n_fact * 4);
+    load_column(ssb_path + "/LINEORDER5", h_lo_date, n_fact); load_column(ssb_path + "/LINEORDER3", h_lo_part, n_fact);
+    load_column(ssb_path + "/LINEORDER4", h_lo_supp, n_fact); load_column(ssb_path + "/LINEORDER12", h_lo_rev, n_fact);
+
+    int *h_p_key = (int*)malloc(n_part * 4), *h_p_cat = (int*)malloc(n_part * 4), *h_brand = (int*)malloc(n_part * 4);
+    load_column(ssb_path + "/PART0", h_p_key, n_part); load_column(ssb_path + "/PART3", h_p_cat, n_part); load_column(ssb_path + "/PART4", h_brand, n_part);
+    int *h_s_key = (int*)malloc(n_supp * 4), *h_s_reg = (int*)malloc(n_supp * 4);
+    load_column(ssb_path + "/SUPPLIER0", h_s_key, n_supp); load_column(ssb_path + "/SUPPLIER5", h_s_reg, n_supp);
+    int *h_d_key = (int*)malloc(n_date * 4), *h_d_year = (int*)malloc(n_date * 4);
+    load_column(ssb_path + "/DDATE0", h_d_key, n_date); load_column(ssb_path + "/DDATE4", h_d_year, n_date);
+
+    int *d_lo_date = sycl::malloc_device<int>(n_fact, q); int *d_lo_part = sycl::malloc_device<int>(n_fact, q);
+    int *d_lo_supp = sycl::malloc_device<int>(n_fact, q); int *d_lo_rev = sycl::malloc_device<int>(n_fact, q);
+    q.memcpy(d_lo_date, h_lo_date, n_fact*4); q.memcpy(d_lo_part, h_lo_part, n_fact*4);
+    q.memcpy(d_lo_supp, h_lo_supp, n_fact*4); q.memcpy(d_lo_rev, h_lo_rev, n_fact*4);
+
+    bool *d_p_filter = sycl::malloc_device<bool>(1400000 + 1, q); int *d_p_brand = sycl::malloc_device<int>(1400000 + 1, q);
+    bool *d_s_filter = sycl::malloc_device<bool>(200000 + 1, q);
+    const int D_MIN = 19920101, D_RANGE = 2556;
+    int *d_year_map = sycl::malloc_device<int>(D_RANGE, q);
+    q.fill(d_p_filter, false, 1400000+1); q.fill(d_s_filter, false, 200000+1); q.fill(d_year_map, 0, D_RANGE).wait();
+
+    int *dt1 = sycl::malloc_device<int>(n_part, q), *dt2 = sycl::malloc_device<int>(n_part, q), *dt3 = sycl::malloc_device<int>(n_part, q);
+    q.memcpy(dt1, h_p_key, n_part*4); q.memcpy(dt2, h_p_cat, n_part*4); q.memcpy(dt3, h_brand, n_part*4);
+    q.parallel_for(n_part, [=](auto i){ int k=dt1[i]; if(k>=0 && k<=1400000){ d_p_filter[k]=(dt2[i]==1); d_p_brand[k]=dt3[i]; } }).wait();
+    q.memcpy(dt1, h_s_key, n_supp*4); q.memcpy(dt2, h_s_reg, n_supp*4);
+    q.parallel_for(n_supp, [=](auto i){ int k=dt1[i]; if(k>=0 && k<=200000) d_s_filter[k]=(dt2[i]==1); }).wait();
+    int *dt4 = sycl::malloc_device<int>(n_date, q), *dt5 = sycl::malloc_device<int>(n_date, q);
+    q.memcpy(dt4, h_d_key, n_date * 4); q.memcpy(dt5, h_d_year, n_date * 4);
+    q.parallel_for(n_date, [=](auto i){ int k=dt4[i]; if(k>=D_MIN && k<D_MIN+D_RANGE) d_year_map[k-D_MIN]=dt5[i]; }).wait();
+    sycl::free(dt1, q); sycl::free(dt2, q); sycl::free(dt3, q); sycl::free(dt4, q); sycl::free(dt5, q);
 
     uint64_t *d_res_agg = sycl::malloc_device<uint64_t>(1000, q); unsigned *d_res_flags = sycl::malloc_device<unsigned>(1000, q);
     int *d_res_year = sycl::malloc_device<int>(1000, q), *d_res_brand = sycl::malloc_device<int>(1000, q);
@@ -71,7 +99,7 @@ int main(int argc, char** argv) {
     cfg.define_as_call_sequence(&execute_q21_tiled_ops, {&q21_probe_t, &q21_agg_t});
 
     const int BLOCK_SIZE = 128; const int ITEMS = 4;
-    size_t num_groups = (n + BLOCK_SIZE * ITEMS - 1) / (BLOCK_SIZE * ITEMS);
+    size_t num_groups = (n_fact + BLOCK_SIZE * ITEMS - 1) / (BLOCK_SIZE * ITEMS);
     sycl::nd_range<1> ndr{num_groups * BLOCK_SIZE, BLOCK_SIZE};
 
     auto run_kernel = [&]() {
@@ -81,7 +109,7 @@ int main(int argc, char** argv) {
             #pragma unroll
             for(int i=0; i<ITEMS; ++i) {
                 int idx = base + i * BLOCK_SIZE;
-                if(idx < n) {
+                if(idx < n_fact) {
                     bool pass = true;
                     execute_q21_tiled_ops(it, ctx, pass, idx);
                 }
@@ -92,13 +120,19 @@ int main(int argc, char** argv) {
     q.fill(d_res_agg, 0ULL, 1000); q.fill(d_res_flags, 0u, 1000).wait();
     run_kernel(); // Warmup and JIT trigger
 
-    auto start = std::chrono::high_resolution_clock::now();
-    for(int i=0; i<10; ++i) {
+    std::vector<double> times;
+    for(int i=0; i<repetitions; ++i) {
         q.fill(d_res_agg, 0ULL, 1000);
         q.fill(d_res_flags, 0u, 1000).wait();
+        auto start = std::chrono::high_resolution_clock::now();
         run_kernel();
+        auto end = std::chrono::high_resolution_clock::now();
+        times.push_back(std::chrono::duration<double, std::milli>(end - start).count());
     }
-    auto end = std::chrono::high_resolution_clock::now();
-    std::cout << "Avg: " << std::chrono::duration<double, std::milli>(end - start).count() / 10.0 << " ms" << std::endl;
+    double total = 0; for(auto t : times) total += t;
+    double avg = total / (double)repetitions;
+    double var = 0; for(auto t : times) var += (t-avg)*(t-avg);
+    double stddev = std::sqrt(var/(double)repetitions);
+    std::cout << "Avg: " << avg << " ms, StdDev: " << stddev << " ms" << std::endl;
     return 0;
 }
