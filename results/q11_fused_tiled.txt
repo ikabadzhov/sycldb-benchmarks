@@ -1,4 +1,0 @@
-Avg Execution Time: 7.720 ms (StdDev: N/A)
-Status: Fused (JIT), Tiled (BLOCK_STRIPED)
-Throughput: ~1360 GB/s
-Summary: Perfectly saturates memory bandwidth in sync with naive-map.

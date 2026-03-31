@@ -1,7 +1,0 @@
-Device: NVIDIA L40S
-Table [LINEORDER] size: 600043265 rows
-Repetitions: 10 internal kernel runs (warmup ignored)
-Avg Execution Time: 7.720 ms (StdDev: N/A)
-Status: Fused (JIT), Call Sequence Mode
-Throughput: ~1360 GB/s
-Summary: Hits near-theoretical bandwidth of L40S L2-uncached memory wall.

@@ -1,7 +1,0 @@
-Device: NVIDIA L40S
-Table [LINEORDER] size: 600043265 rows
-Avg Execution Time: 310.121 ms (StdDev: N/A)
-Status: Fused (JIT), Tiled (BLOCK_STRIPED)
-Throughput: ~64 GB/s
-Summary: Bottlenecked by global atomic contention and dimension lookup latency.
-Performance is identical regardless of load pattern once hash probes dominate.

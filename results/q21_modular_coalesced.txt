@@ -1,2 +1,0 @@
-Device: NVIDIA L40S
-Table sizes: Fact=600043265 (padded 600043268), Part=1400000, Supp=200000, Date=2556
