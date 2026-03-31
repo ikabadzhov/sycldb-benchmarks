@@ -1,0 +1,2 @@
+Device: NVIDIA L40S
+Table [LINEORDER] size: 600043265 rows (padded to 600043268)

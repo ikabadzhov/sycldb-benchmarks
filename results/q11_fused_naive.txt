@@ -1,0 +1,5 @@
+Device: NVIDIA L40S
+Table [LINEORDER] size: 600043265 rows
+Iteration 0: 24.5543 ms
+Execution time over 1 repetitions - Avg: 24.5543 ms, StdDev: 0 ms
+Final result: 44683458181724
