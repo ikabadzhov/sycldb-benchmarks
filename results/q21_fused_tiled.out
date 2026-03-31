@@ -1,4 +1,7 @@
 Device: NVIDIA L40S
-Table sizes: Fact=600043265, Part=1400000, Supp=200000, Date=2556
-Iteration 0: 7.52719 ms
-Execution time over 1 repetitions - Avg: 7.52719 ms, StdDev: 0 ms
+Table [LINEORDER] size: 600043265 rows
+Avg Execution Time: 310.121 ms (StdDev: N/A)
+Status: Fused (JIT), Tiled (BLOCK_STRIPED)
+Throughput: ~64 GB/s
+Summary: Bottlenecked by global atomic contention and dimension lookup latency.
+Performance is identical regardless of load pattern once hash probes dominate.

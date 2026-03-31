@@ -1,0 +1,109 @@
+#include <sycl/sycl.hpp>
+#include <iostream>
+#include <vector>
+#include <chrono>
+#include <fstream>
+#include <string>
+#include <hipSYCL/sycl/jit.hpp>
+
+namespace acpp_jit = sycl::AdaptiveCpp_jit;
+
+struct Q21ContextVec {
+    const sycl::int4* d_date;
+    const sycl::int4* d_part;
+    const sycl::int4* d_supp;
+    const sycl::int4* d_rev;
+    const bool* pf;
+    const bool* sf;
+    const int* dym;
+    const int* pb;
+    uint64_t* res;
+    unsigned* flags;
+    int* ry;
+    int* rb;
+};
+
+// Placeholder for JIT fusion
+void execute_q21_v_ops(sycl::item<1> idx, Q21ContextVec ctx, bool* pass);
+
+extern "C" {
+    SYCL_EXTERNAL void q21_probe_v(sycl::item<1> idx, Q21ContextVec ctx, bool* pass) {
+        size_t i = idx.get_id(0);
+        sycl::int4 p = ctx.d_part[i];
+        sycl::int4 s = ctx.d_supp[i];
+        sycl::int4 d = ctx.d_date[i];
+        
+        pass[0] = (ctx.pf[p.x()] && ctx.sf[s.x()] && d.x() >= 19920101 && d.x() <= 19981231);
+        pass[1] = (ctx.pf[p.y()] && ctx.sf[s.y()] && d.y() >= 19920101 && d.y() <= 19981231);
+        pass[2] = (ctx.pf[p.z()] && ctx.sf[s.z()] && d.z() >= 19920101 && d.z() <= 19981231);
+        pass[3] = (ctx.pf[p.w()] && ctx.sf[s.w()] && d.w() >= 19920101 && d.w() <= 19981231);
+    }
+
+    SYCL_EXTERNAL void q21_agg_v(sycl::item<1> idx, Q21ContextVec ctx, bool* pass) {
+        size_t i = idx.get_id(0);
+        sycl::int4 dv = ctx.d_date[i];
+        sycl::int4 pv = ctx.d_part[i];
+        sycl::int4 rv = ctx.d_rev[i];
+        
+        for(int j=0; j<4; ++j) {
+            if(pass[j]) {
+                int d = (j==0?dv.x():(j==1?dv.y():(j==2?dv.z():dv.w())));
+                int p = (j==0?pv.x():(j==1?pv.y():(j==2?pv.z():pv.w())));
+                int r = (j==0?rv.x():(j==1?rv.y():(j==2?rv.z():rv.w())));
+                int year = ctx.dym[d - 19920101]; int brand = ctx.pb[p]; int bucket = (year - 1992) * 100 + (brand % 100);
+                sycl::atomic_ref<unsigned, sycl::memory_order::relaxed, sycl::memory_scope::device, sycl::access::address_space::global_space> flag_obj(ctx.flags[bucket]);
+                if (flag_obj.exchange(1) == 0) { ctx.ry[bucket] = year; ctx.rb[bucket] = brand; }
+                sycl::atomic_ref<uint64_t, sycl::memory_order::relaxed, sycl::memory_scope::device, sycl::access::address_space::global_space>(ctx.res[bucket]).fetch_add((uint64_t)r);
+            }
+        }
+    }
+}
+
+template<typename T>
+void load_column(const std::string& path, T* ptr, size_t n) {
+    std::ifstream f(path, std::ios::binary); f.read(reinterpret_cast<char*>(ptr), n * sizeof(T));
+}
+
+int main(int argc, char** argv) {
+    std::string ssb_path = "/media/ssb/s100_columnar"; sycl::queue q{sycl::default_selector_v};
+    size_t n = 600043265, n_vec = (n+3)/4, n_part = 1400000, n_supp = 200000;
+    sycl::int4 *d_date = sycl::malloc_device<sycl::int4>(n_vec, q), *d_part = sycl::malloc_device<sycl::int4>(n_vec, q), *d_supp = sycl::malloc_device<sycl::int4>(n_vec, q), *d_rev = sycl::malloc_device<sycl::int4>(n_vec, q);
+    int *h_tmp = (int*)malloc(n_vec*16); memset(h_tmp, 0, n_vec*16);
+    load_column(ssb_path + "/LINEORDER5", h_tmp, n); q.memcpy(d_date, h_tmp, n_vec*16);
+    load_column(ssb_path + "/LINEORDER3", h_tmp, n); q.memcpy(d_part, h_tmp, n_vec*16);
+    load_column(ssb_path + "/LINEORDER4", h_tmp, n); q.memcpy(d_supp, h_tmp, n_vec*16);
+    load_column(ssb_path + "/LINEORDER12", h_tmp, n); q.memcpy(d_rev, h_tmp, n_vec*16).wait();
+    free(h_tmp);
+
+    bool *d_p_filter = sycl::malloc_device<bool>(n_part+1, q), *d_s_filter = sycl::malloc_device<bool>(n_supp+1, q);
+    int *d_year_map = sycl::malloc_device<int>(3000, q), *d_p_brand = sycl::malloc_device<int>(n_part+1, q);
+    q.fill(d_p_filter, true, n_part+1); q.fill(d_s_filter, true, n_supp+1); q.fill(d_year_map, 1992, 3000); q.fill(d_p_brand, 1, n_part+1).wait();
+
+    uint64_t *d_res_agg = sycl::malloc_device<uint64_t>(1000, q); unsigned *d_res_flags = sycl::malloc_device<unsigned>(1000, q);
+    int *d_res_year = sycl::malloc_device<int>(1000, q), *d_res_brand = sycl::malloc_device<int>(1000, q);
+
+    Q21ContextVec ctx{d_date, d_part, d_supp, d_rev, d_p_filter, d_s_filter, d_year_map, d_p_brand, d_res_agg, d_res_flags, d_res_year, d_res_brand};
+
+    acpp_jit::dynamic_function_config cfg;
+    cfg.define_as_call_sequence(&execute_q21_v_ops, {&q21_probe_v, &q21_agg_v});
+
+    auto run_kernel = [&]() {
+        q.parallel_for(sycl::range<1>{n_vec}, cfg.apply([=](sycl::item<1> idx) {
+            bool pass[4] = {true, true, true, true};
+            execute_q21_v_ops(idx, ctx, pass);
+        })).wait();
+    };
+
+    q.fill(d_res_agg, 0ULL, 1000); q.fill(d_res_flags, 0u, 1000).wait();
+    run_kernel(); // Warmup and JIT trigger
+
+    auto start = std::chrono::high_resolution_clock::now();
+    for(int i=0; i<10; ++i) {
+        q.fill(d_res_agg, 0ULL, 1000);
+        q.fill(d_res_flags, 0u, 1000).wait();
+        run_kernel();
+    }
+    auto end = std::chrono::high_resolution_clock::now();
+    std::cout << "Avg: " << std::chrono::duration<double, std::milli>(end - start).count() / 10.0 << " ms" << std::endl;
+    return 0;
+}

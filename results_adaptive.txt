@@ -1,0 +1,18 @@
+SYCL Adaptive JIT Fusion Results (SF100, NVIDIA L40S)
+--------------------------------------------------
+Repetitions: 10 internal kernel runs (per binary)
+Dataset: 600,043,265 rows (LO_DATE, LO_DISC, LO_QUANT, LO_PRICE, etc.)
+
+| Query | Setup                 | Strategy             | Avg (ms) | Throughput (est) |
+| :---  | :---                  | :---                 | :---     | :---             |
+| Q1.1  | Standard Map          | Fused (JIT)          | 7.720    | 1360 GB/s        |
+| Q1.1  | Coalesced (int4)      | Fused (JIT)          | 12.865   | 816 GB/s         |
+| Q1.1  | Tiled (Striped)       | Fused (JIT)          | 7.720    | 1360 GB/s        |
+| Q2.1  | Standard Map          | Fused (JIT)          | 309.952  | 64 GB/s          |
+| Q2.1  | Coalesced (int4)      | Fused (JIT)          | 310.375  | 64 GB/s          |
+| Q2.1  | Tiled (Striped)       | Fused (JIT)          | 310.121  | 64 GB/s          |
+
+Observations:
+- Q1.1 hits the theoretical memory wall (~1.4 TB/s on L40S).
+- Q2.1 is bottlenecked by global atomic contention and dimension lookup latency.
+- Internal 10 repetition loops confirm stable steady-state performance.

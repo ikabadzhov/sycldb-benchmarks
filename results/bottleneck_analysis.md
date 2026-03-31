@@ -83,13 +83,13 @@ The "Modular" strategy (originally `manykernels`) simulates a real-world databas
 ### Key Findings for Modular vs. Fused:
 1. **The Materialization Penalty**: In the Modular approach, the Selection kernel must materialize its results into a `bool* mask` in global memory. The subsequent Aggregation kernel then *re-reads* this mask. This adds a minimum of **2 Global Memory Transactions** (1 Write + 1 Read) per row that were not present in the Fused (Hardcoded) version.
 2. **Bandwidth Impact (Q1.1)**:
-   - **Fused Tiled**: 6.04 ms (Directly consumes data in registers).
-   - **Modular Tiled**: 10.38 ms (~72% overhead).
-   - The bottleneck shifts from pure data-column fetching to **Mask-I/O contention**. NCU profiling shows that the mask read/write consumes ~15% of total achieved bandwidth, competing with the raw column data.
+   - **Fused Tiled (SF100)**: 7.72 ms (Consumes data directly in registers, hits memory bandwidth limits).
+   - **Modular Tiled (SF1)**: 10.38 ms (Historical baseline for comparison).
+   - At SF100, the bottleneck is exclusively **VRAM Bandwidth**. The JIT-fused kernel achieves ~1.36 TB/s by reading only the necessary LO columns.
 3. **Bandwidth Impact (Q2.1)**:
-   - **Fused Tiled**: 7.61 ms.
-   - **Modular Tiled**: 15.38 ms (~100% overhead).
-   - Because Q2.1 involves more complex joins and hash probes, the additional pass over the data for selection doubles the total execution time, as the hardware is already near the memory saturation point (90%+ throughput).
+   - **Fused Tiled (SF100)**: 310.12 ms.
+   - **Modular Tiled (SF1)**: 15.38 ms.
+   - For Q2.1, large-scale execution is dominated by **random memory latency** (dimension table lookups) and atomic contention. Total bandwidth throughput falls to ~64 GB/s.
 
 ---
 
