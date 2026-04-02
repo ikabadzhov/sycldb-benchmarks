@@ -6,6 +6,7 @@
 #include <string>
 #include <cmath>
 #include <algorithm>
+#include "../utils/sycl_device.hpp"
 
 /**
  * SSB Q2.1 Standalone Benchmark (Hardcoded SYCL Tiled Kernel)
@@ -102,7 +103,7 @@ int main(int argc, char** argv) {
         if (arg == "-r" && i + 1 < argc) repetitions = std::stoi(argv[++i]);
         else if (arg == "-p" && i + 1 < argc) ssb_path = argv[++i];
     }
-    sycl::queue q{sycl::default_selector_v};
+    sycl::queue q = sycldb::make_queue_from_args(argc, argv);
     std::cout << "Device: " << q.get_device().get_info<sycl::info::device::name>() << std::endl;
 
     size_t n_fact = get_file_rows(ssb_path + "/LINEORDER5");

@@ -18,6 +18,8 @@ if args.acpp:
     cmd.extend(["--acpp", args.acpp])
 if args.nvcc:
     cmd.extend(["--nvcc", args.nvcc])
+if args.device is not None:
+    cmd.extend(["--device", str(args.device)])
 cmd.extend(["--repetitions", str(args.repetitions)])
 subprocess.run(cmd, check=True)
 subprocess.run([sys.executable, "scripts/plot_measured.py"], check=True)

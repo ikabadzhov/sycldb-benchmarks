@@ -26,6 +26,7 @@ The Python tooling now prefers explicit CLI flags and falls back to environment 
 - `SYCLDB_SSB_PATH`: dataset root for the SSB columnar files
 - `SYCLDB_ACPP`: path to the AdaptiveCpp compiler binary
 - `SYCLDB_NVCC`: path to `nvcc`
+- `-d` / `--device`: SYCL device id to target at runtime for SYCL benchmarks
 
 If `SYCLDB_SSB_PATH` is not set, the scripts try these dataset locations in order:
 
@@ -34,6 +35,14 @@ If `SYCLDB_SSB_PATH` is not set, the scripts try these dataset locations in orde
 
 ## Common Workflows
 
+### List SYCL devices
+
+```bash
+make list-devices
+```
+
+This compiles and runs `bin/sycl_ls`, a small `sycl-ls`-style helper that prints stable device ids and names. Use those ids with `-d`, for example `-d 3`.
+
 ### Build and benchmark
 
 ```bash
@@ -41,6 +50,14 @@ make benchmark
 ```
 
 This runs `python3 scripts/bench_all.py` and writes measured output to `results/benchmark_data.json`.
+
+To run benchmarks on a specific SYCL device:
+
+```bash
+python3 scripts/bench_all.py -d 3
+```
+
+The `-d` flag is forwarded only to the SYCL benchmarks. CUDA `mordred` binaries still use the CUDA runtime's default device selection.
 
 ### Verify final results match across variants
 
@@ -63,8 +80,8 @@ This generates `results/measured_comparison.png` directly from `results/benchmar
 Each main script supports explicit CLI configuration:
 
 ```bash
-python3 scripts/bench_all.py --dataset /path/to/ssb --acpp /path/to/acpp --nvcc /path/to/nvcc --repetitions 10
-python3 scripts/run_adaptive.py --dataset /path/to/ssb --repetitions 10
+python3 scripts/bench_all.py --dataset /path/to/ssb --acpp /path/to/acpp --nvcc /path/to/nvcc --repetitions 10 -d 3
+python3 scripts/run_adaptive.py --dataset /path/to/ssb --repetitions 10 -d 3
 python3 scripts/verify_results.py --dataset /path/to/ssb --queries q11 q21
 python3 scripts/plot_measured.py
 ```
@@ -76,7 +93,7 @@ python3 scripts/plot_measured.py
 
 ## Results And Analysis
 
-- `results/benchmark_data.json`: measured benchmark values and standard deviations
+- `results/benchmark_data.json`: raw per-run timing samples for each benchmark entry
 - `results/measured_comparison.png`: measured comparison chart generated from JSON data
 - `results/bottleneck_analysis.md`: profiling-based narrative analysis
 

@@ -27,6 +27,23 @@ def load_data():
     return grouped
 
 
+def summarize_times(times_ms):
+    if not times_ms:
+        return 0.0, 0.0
+    samples = np.array(times_ms, dtype=float)
+    avg = float(np.mean(samples))
+    stddev = float(np.std(samples))
+    return avg, stddev
+
+
+def summarize_row(row):
+    if not row:
+        return 0.0, 0.0
+    if "times_ms" in row:
+        return summarize_times(row.get("times_ms", []))
+    return float(row.get("avg_ms", 0.0)), float(row.get("stddev_ms", 0.0))
+
+
 def plot_query(ax, grouped, query):
     width = 0.25
     x = np.arange(len(VARIANTS))
@@ -36,8 +53,9 @@ def plot_query(ax, grouped, query):
         stddevs = []
         for variant in VARIANTS:
             row = grouped[(query, variant)].get(model)
-            avgs.append(row["avg_ms"] if row else 0.0)
-            stddevs.append(row["stddev_ms"] if row else 0.0)
+            avg, stddev = summarize_row(row)
+            avgs.append(avg)
+            stddevs.append(stddev)
         positions = x + (model_index - 1) * width
         ax.bar(
             positions,
@@ -53,11 +71,12 @@ def plot_query(ax, grouped, query):
 
     cuda_row = grouped[(query, "mordred")].get("CUDA")
     if cuda_row:
+        cuda_avg, cuda_stddev = summarize_row(cuda_row)
         ax.bar(
             len(VARIANTS),
-            cuda_row["avg_ms"],
+            cuda_avg,
             0.5,
-            yerr=cuda_row["stddev_ms"],
+            yerr=cuda_stddev,
             label="CUDA",
             color=COLORS["CUDA"],
             edgecolor="black",

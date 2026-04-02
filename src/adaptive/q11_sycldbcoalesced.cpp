@@ -5,6 +5,7 @@
 #include <fstream>
 #include <string>
 #include <hipSYCL/sycl/jit.hpp>
+#include "../utils/sycl_device.hpp"
 
 namespace acpp_jit = sycl::AdaptiveCpp_jit;
 
@@ -62,7 +63,8 @@ int main(int argc, char** argv) {
         else if (arg == "-p" && i + 1 < argc) ssb_path = argv[++i];
     }
     size_t n = 600043265; size_t n_vec = (n+3)/4;
-    sycl::queue q{sycl::default_selector_v};
+    sycl::queue q = sycldb::make_queue_from_args(argc, argv);
+    std::cout << "Device: " << q.get_device().get_info<sycl::info::device::name>() << std::endl;
     sycl::int4 *d_date = sycl::malloc_device<sycl::int4>(n_vec, q), *d_disc = sycl::malloc_device<sycl::int4>(n_vec, q), *d_quant = sycl::malloc_device<sycl::int4>(n_vec, q), *d_price = sycl::malloc_device<sycl::int4>(n_vec, q);
     uint64_t *d_res = sycl::malloc_device<uint64_t>(1, q);
     int *h_tmp = (int*)malloc(n_vec*16); memset(h_tmp, 0, n_vec*16);
@@ -93,7 +95,9 @@ int main(int argc, char** argv) {
         auto start = std::chrono::high_resolution_clock::now();
         run_kernel();
         auto end = std::chrono::high_resolution_clock::now();
-        times.push_back(std::chrono::duration<double, std::milli>(end - start).count());
+        double t = std::chrono::duration<double, std::milli>(end - start).count();
+        times.push_back(t);
+        std::cout << "Run " << i << ": " << t << " ms" << std::endl;
     }
     double total = 0; for(auto t : times) total += t;
     double avg = total / times.size();

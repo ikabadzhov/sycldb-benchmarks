@@ -5,6 +5,7 @@
 #include <fstream>
 #include <string>
 #include <hipSYCL/sycl/jit.hpp>
+#include "../utils/sycl_device.hpp"
 
 namespace acpp_jit = sycl::AdaptiveCpp_jit;
 
@@ -76,7 +77,8 @@ int main(int argc, char** argv) {
         if (arg == "-r" && i + 1 < argc) repetitions = std::stoi(argv[++i]);
         else if (arg == "-p" && i + 1 < argc) ssb_path = argv[++i];
     }
-    sycl::queue q{sycl::default_selector_v};
+    sycl::queue q = sycldb::make_queue_from_args(argc, argv);
+    std::cout << "Device: " << q.get_device().get_info<sycl::info::device::name>() << std::endl;
     size_t n_fact = get_file_rows(ssb_path + "/LINEORDER5");
     size_t n_part = get_file_rows(ssb_path + "/PART0");
     size_t n_supp = get_file_rows(ssb_path + "/SUPPLIER0");
@@ -143,7 +145,9 @@ int main(int argc, char** argv) {
         auto start = std::chrono::high_resolution_clock::now();
         run_kernel();
         auto end = std::chrono::high_resolution_clock::now();
-        times.push_back(std::chrono::duration<double, std::milli>(end - start).count());
+        double t = std::chrono::duration<double, std::milli>(end - start).count();
+        times.push_back(t);
+        std::cout << "Run " << i << ": " << t << " ms" << std::endl;
     }
     double total = 0; for(auto t : times) total += t;
     double avg = total / times.size();

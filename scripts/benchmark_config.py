@@ -34,6 +34,7 @@ class BenchmarkConfig:
     dataset_path: str | None = None
     acpp_path: str | None = None
     nvcc_path: str | None = None
+    device_id: int | None = None
     repetitions: int = 10
     bin_dir: str = str(REPO_ROOT / "bin")
     results_dir: str = str(REPO_ROOT / "results")
@@ -75,5 +76,6 @@ def build_parser(description: str) -> argparse.ArgumentParser:
     parser.add_argument("--dataset", default=None)
     parser.add_argument("--acpp", default=None)
     parser.add_argument("--nvcc", default=None)
+    parser.add_argument("-d", "--device", type=int, default=None)
     parser.add_argument("-r", "--repetitions", type=int, default=10)
     return parser
