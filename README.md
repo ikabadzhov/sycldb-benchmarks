@@ -5,9 +5,10 @@ This repository benchmarks several GPU execution styles for Star Schema Benchmar
 ## Repository Layout
 
 - `src/cuda/`: native CUDA baselines (`mordred`)
-- `src/hardcoded/`: fused SYCL implementations
-- `src/modular/`: split-kernel SYCL implementations
-- `src/adaptive/`: AdaptiveCpp JIT-fusion implementations
+- `src/standard/`: standard memory-access pattern with `q{11,21}_{modular,adaptive,hardcoded}.cpp`
+- `src/coalesced/`: coalesced memory-access pattern with `q{11,21}_{modular,adaptive,hardcoded}.cpp`
+- `src/tiled/`: tiled memory-access pattern with `q{11,21}_{modular,adaptive,hardcoded}.cpp`
+- `src/utils/`: shared SYCL device utilities
 - `scripts/`: benchmark drivers, plotting utilities, and verification helpers
 - `results/`: measured benchmark outputs, plots, and analysis artifacts
 - `outputs/`: raw profiling or benchmark text output

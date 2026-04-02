@@ -94,9 +94,9 @@ Impact:
 
 Files:
 
-- `src/adaptive/q11_sycldb.cpp`
-- `src/adaptive/q11_sycldbcoalesced.cpp`
-- `src/adaptive/q11_sycldbtiled.cpp`
+- `src/standard/q11_adaptive.cpp`
+- `src/coalesced/q11_adaptive.cpp`
+- `src/tiled/q11_adaptive.cpp`
 
 Key changes:
 
@@ -113,9 +113,9 @@ Impact:
 
 Files:
 
-- `src/adaptive/q21_sycldb.cpp`
-- `src/adaptive/q21_sycldbcoalesced.cpp`
-- `src/adaptive/q21_sycldbtiled.cpp`
+- `src/standard/q21_adaptive.cpp`
+- `src/coalesced/q21_adaptive.cpp`
+- `src/tiled/q21_adaptive.cpp`
 
 Key changes:
 
@@ -138,12 +138,12 @@ Impact:
 
 Files:
 
-- `src/modular/q21_sycldb.cpp`
-- `src/modular/q21_sycldbcoalesced.cpp`
-- `src/modular/q21_sycldbtiled.cpp`
-- `src/hardcoded/q21_sycldb.cpp`
-- `src/hardcoded/q21_sycldbcoalesced.cpp`
-- `src/hardcoded/q21_sycldbtiled.cpp`
+- `src/standard/q21_modular.cpp`
+- `src/coalesced/q21_modular.cpp`
+- `src/tiled/q21_modular.cpp`
+- `src/standard/q21_hardcoded.cpp`
+- `src/coalesced/q21_hardcoded.cpp`
+- `src/tiled/q21_hardcoded.cpp`
 - `src/cuda/q21_mordred.cu`
 
 Key changes:
