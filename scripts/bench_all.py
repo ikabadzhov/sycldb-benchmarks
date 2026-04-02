@@ -1,98 +1,154 @@
-import subprocess
-import re
+import json
 import os
-import numpy as np
+import re
+import subprocess
+import sys
+from pathlib import Path
 
-# Configuration
-repetitions = 10
-ssb_path = "/media/ssb/s100_columnar"
-acpp_path = "/media/ACPP/AdaptiveCpp-25.10.0/install/bin/acpp"
+if __package__ is None or __package__ == "":
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from scripts.benchmark_config import (
+    REPO_ROOT,
+    build_parser,
+    resolve_dataset_path,
+    resolve_tool_path,
+)
+
+
+VARIANTS = [
+    "q11_sycldb",
+    "q11_sycldbcoalesced",
+    "q11_sycldbtiled",
+    "q21_sycldb",
+    "q21_sycldbcoalesced",
+    "q21_sycldbtiled",
+]
+
+BINARY_PREFIX = {"Modular": "mod", "JIT Fusion": "adp", "Hardcoded": "hrd"}
+
 
 def run_bench(cmd):
-    # Ensure ssb_path is passed if binary supports it
-    if "-p" not in cmd and "./bin/q" not in cmd[0]: # adaptive binaries don't use -p in this version
-        cmd.extend(["-p", ssb_path])
-        
     print(f"Executing: {' '.join(cmd)}")
     process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     stdout, stderr = process.communicate()
-    
+
     if process.returncode != 0:
         print(f"Error executing {cmd[0]}: {stderr}")
-        return None
-    
-    # Improved regex to handle cases like "Avg execution time over 10 repetitions: 10.2296 ms"
-    # It looks for "Avg", followed by anything that isn't a colon, then a colon, whitespace, and the number.
-    match = re.search(r"Avg[^:]*:\s*([\d\.]+)\s*ms", stdout)
-    if match:
-        return float(match.group(1))
-    
-    # Fallback for adaptive output format if different
-    match = re.search(r"Avg:\s*([\d\.]+)\s*ms", stdout)
-    if match:
-        return float(match.group(1))
-        
+        return None, None
+
+    avg_match = re.search(r"Avg[^:]*:\s*([\d\.]+)\s*ms", stdout)
+    dev_match = re.search(r"StdDev:\s*([\d\.]+)\s*ms", stdout)
+    if avg_match:
+        avg = float(avg_match.group(1))
+        stddev = float(dev_match.group(1)) if dev_match else 0.0
+        return avg, stddev
+
     print(f"No match in output for {cmd[0]}:\n{stdout}")
-    return None
+    return None, None
+
+
+parser = build_parser("Compile and run benchmark variants")
+args = parser.parse_args()
+dataset_path = resolve_dataset_path(args.dataset)
+acpp_path = resolve_tool_path(args.acpp, "SYCLDB_ACPP")
+nvcc_path = resolve_tool_path(args.nvcc, "SYCLDB_NVCC")
+repetitions = args.repetitions
 
 results = {
-    'Q1.1': {'Adaptive': [], 'Modular': [], 'Hardcoded': []},
-    'Q2.1': {'Adaptive': [], 'Modular': [], 'Hardcoded': []}
+    "Q1.1": {"JIT Fusion": [], "Modular": [], "Hardcoded": [], "CUDA": []},
+    "Q2.1": {"JIT Fusion": [], "Modular": [], "Hardcoded": [], "CUDA": []},
 }
+raw_data = []
 
-# 1. Compile everything (Skip if already built to save time)
-os.makedirs("bin", exist_ok=True)
+os.makedirs(REPO_ROOT / "bin", exist_ok=True)
+os.makedirs(REPO_ROOT / "results", exist_ok=True)
+
 compile_cmds = []
-for b in ["q11_sycldb", "q11_sycldbcoalesced", "q11_sycldbtiled", "q21_sycldb", "q21_sycldbcoalesced", "q21_sycldbtiled"]:
-    if not os.path.exists(f"bin/{b}"):
-        compile_cmds.append([acpp_path, "-O3", "-std=c++20", "--acpp-targets=generic", f"src/adaptive/{b}.cpp", "-o", f"bin/{b}"])
-for b in ["q11_sycldb", "q11_sycldbcoalesced", "q11_sycldbtiled", "q21_sycldb", "q21_sycldbcoalesced", "q21_sycldbtiled"]:
-    if not os.path.exists(f"bin/mod_{b}"):
-        compile_cmds.append([acpp_path, "-O3", "-std=c++20", "--acpp-targets=generic", f"src/modular/{b}.cpp", "-o", f"bin/mod_{b}"])
-if not os.path.exists("bin/hard_q11"):
-    compile_cmds.append([acpp_path, "-O3", "-std=c++20", "--acpp-targets=generic", "../q11_hardcoded.cpp", "-o", "bin/hard_q11"])
-if not os.path.exists("bin/hard_q21"):
-    compile_cmds.append([acpp_path, "-O3", "-std=c++20", "--acpp-targets=generic", "../q21_hardcoded.cpp", "-o", "bin/hard_q21"])
+for b in VARIANTS:
+    for prefix, source_dir in (("adp", "adaptive"), ("mod", "modular"), ("hrd", "hardcoded")):
+        output = REPO_ROOT / "bin" / f"{prefix}_{b}"
+        if not output.exists():
+            compile_cmds.append(
+                [
+                    acpp_path,
+                    "-O3",
+                    "-std=c++20",
+                    "--acpp-targets=generic",
+                    f"src/{source_dir}/{b}.cpp",
+                    "-o",
+                    str(output),
+                ]
+            )
+
+for query in ("q11", "q21"):
+    output = REPO_ROOT / "bin" / f"mrd_{query}"
+    if not output.exists():
+        compile_cmds.append(
+            [
+                nvcc_path,
+                "-O3",
+                "-arch=native",
+                f"src/cuda/{query}_mordred.cu",
+                "-o",
+                str(output),
+            ]
+        )
 
 if compile_cmds:
     print("Compiling missing variants...")
     for cmd in compile_cmds:
-        subprocess.run(cmd, check=True)
+        subprocess.run(cmd, check=True, cwd=REPO_ROOT)
 
-# 2. Run Benchmarks
-# Adaptive (Standard, Coalesced, Tiled)
-for b in ["q11_sycldb", "q11_sycldbcoalesced", "q11_sycldbtiled"]:
-    t = run_bench([f"./bin/{b}"])
-    if t: results['Q1.1']['Adaptive'].append(t)
+for v in VARIANTS:
+    query_key = "Q1.1" if v.startswith("q11") else "Q2.1"
+    for model_key, prefix in BINARY_PREFIX.items():
+        avg, stddev = run_bench(
+            [
+                str(REPO_ROOT / "bin" / f"{prefix}_{v}"),
+                "-r",
+                str(repetitions),
+                "-p",
+                dataset_path,
+            ]
+        )
+        results[query_key][model_key].append(avg)
+        raw_data.append(
+            {
+                "query": v[:3],
+                "variant": v[4:],
+                "model": model_key,
+                "avg_ms": avg,
+                "stddev_ms": stddev,
+            }
+        )
 
-for b in ["q21_sycldb", "q21_sycldbcoalesced", "q21_sycldbtiled"]:
-    t = run_bench([f"./bin/{b}"])
-    if t: results['Q2.1']['Adaptive'].append(t)
+for query_key, query in (("Q1.1", "q11"), ("Q2.1", "q21")):
+    avg, stddev = run_bench(
+        [str(REPO_ROOT / "bin" / f"mrd_{query}"), "-r", str(repetitions), "-p", dataset_path]
+    )
+    results[query_key]["CUDA"].append(avg)
+    raw_data.append(
+        {
+            "query": query,
+            "variant": "mordred",
+            "model": "CUDA",
+            "avg_ms": avg,
+            "stddev_ms": stddev,
+        }
+    )
 
-# Modular (Standard, Coalesced, Tiled)
-for b in ["mod_q11_sycldb", "mod_q11_sycldbcoalesced", "mod_q11_sycldbtiled"]:
-    t = run_bench([f"./bin/{b}", "-r", str(repetitions)])
-    if t: results['Q1.1']['Modular'].append(t)
+with open(REPO_ROOT / "results" / "benchmark_data.json", "w", encoding="utf-8") as f:
+    json.dump(raw_data, f, indent=4)
 
-for b in ["mod_q21_sycldb", "mod_q21_sycldbcoalesced", "mod_q21_sycldbtiled"]:
-    t = run_bench([f"./bin/{b}", "-r", str(repetitions)])
-    if t: results['Q2.1']['Modular'].append(t)
-
-# Hardcoded
-t = run_bench(["./bin/hard_q11", "-r", str(repetitions)])
-if t: results['Q1.1']['Hardcoded'] = [t] * 3
-t = run_bench(["./bin/hard_q21", "-r", str(repetitions)])
-if t: results['Q2.1']['Hardcoded'] = [t] * 3
-
-# Printing Table
-print("\n| Query | Strategy | Hardcoded (ms) | Adaptive Fused (ms) | Modular (ms) |")
+print("\n| Query | Strategy | Hardcoded (ms) | JIT Fusion (ms) | Modular (ms) |")
 print("| :--- | :--- | :--- | :--- | :--- |")
-for q in ['Q1.1', 'Q2.1']:
-    for i, s in enumerate(['Standard', 'Coalesced', 'Tiled']):
+for q in ["Q1.1", "Q2.1"]:
+    for i, strategy in enumerate(["Standard", "Coalesced", "Tiled"]):
         try:
-            h = results[q]['Hardcoded'][i]
-            a = results[q]['Adaptive'][i]
-            m = results[q]['Modular'][i]
-            print(f"| {q} | {s} | {h:.3f} | {a:.3f} | {m:.3f} |")
-        except:
-            print(f"| {q} | {s} | N/A | N/A | N/A |")
+            h = results[q]["Hardcoded"][i]
+            a = results[q]["JIT Fusion"][i]
+            m = results[q]["Modular"][i]
+            print(f"| {q} | {strategy} | {h:.3f} | {a:.3f} | {m:.3f} |")
+        except (TypeError, IndexError):
+            print(f"| {q} | {strategy} | N/A | N/A | N/A |")
