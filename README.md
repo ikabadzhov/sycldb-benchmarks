@@ -1,58 +1,85 @@
-# SYCL vs Native CUDA Tiled Execution Benchmarks
+# SYCLDB Benchmarks
 
-This repository contains standalone implementations of Star Schema Benchmark (SSB) queries **Q1.1** and **Q2.1**, comparing standard execution methods against explicit execution topologies via both native CUDA and generic SYCL (AdaptiveCpp). 
+This repository benchmarks several GPU execution styles for Star Schema Benchmark queries `Q1.1` and `Q2.1`. It compares native CUDA baselines with multiple SYCL implementations, including modular kernels, fused kernels, and AdaptiveCpp JIT-fusion variants.
 
-The goal of this suite is to analyze performance scaling and JIT-compiled assembly behavior under different scheduling instructions (flat threads vs 128-bit vectorization vs manual thread blocking).
+## Repository Layout
 
-## Repository Structure
+- `src/cuda/`: native CUDA baselines (`mordred`)
+- `src/hardcoded/`: fused SYCL implementations
+- `src/modular/`: split-kernel SYCL implementations
+- `src/adaptive/`: AdaptiveCpp JIT-fusion implementations
+- `scripts/`: benchmark drivers, plotting utilities, and verification helpers
+- `results/`: measured benchmark outputs, plots, and analysis artifacts
+- `outputs/`: raw profiling or benchmark text output
 
-```
-├── README.md
-├── src/
-│   ├── q11_sycldb.cpp           # Standard flat SYCL array map strategy
-│   ├── q11_sycldbcoalesced.cpp  # SYCL 128-bit vectors (sycl::int4) mapping
-│   ├── q11_sycldbtiled.cpp      # SYCL Block-striped unrolling with subgroup reductions
-│   ├── q11_mordred.cu           # Native CUDA reference (block-striped unrolling)
-│   ├── q21_sycldb.cpp           
-│   ├── q21_sycldbcoalesced.cpp  
-│   ├── q21_sycldbtiled.cpp      
-│   └── q21_mordred.cu           
-├── scripts/
-│   ├── parse.py                 # Parses ncu traces for max-throughput kernel logs
-│   ├── parse_ncu.py             # Parses general ncu traces
-│   └── plot_roofline.py         # Matplotlib scatter script mapping Nsight Roofline data
-└── results/                     # Nsight Compute (ncu) trace outputs & generated plots
-    ├── bottleneck_analysis.md   # Final comparative breakdown & compiler claims
-    └── roofline_plot.png        # Rendered hardware limit chart (L40S)
-```
+## Prerequisites
 
-## Compilation
+- Python 3
+- AdaptiveCpp compiler
+- CUDA toolkit with `nvcc`
+- SSB columnar dataset compatible with the benchmark binaries
 
-To compile the SYCL benchmarks using AdaptiveCpp (targeting NVIDIA backends generically via `ptx`):
+## Configuration
+
+The Python tooling now prefers explicit CLI flags and falls back to environment variables.
+
+- `SYCLDB_SSB_PATH`: dataset root for the SSB columnar files
+- `SYCLDB_ACPP`: path to the AdaptiveCpp compiler binary
+- `SYCLDB_NVCC`: path to `nvcc`
+
+If `SYCLDB_SSB_PATH` is not set, the scripts try these dataset locations in order:
+
+- `/media/ssb/sf100_columnar`
+- `/media/ssb/s100_columnar`
+
+## Common Workflows
+
+### Build and benchmark
 
 ```bash
-acpp -O3 -std=c++20 --acpp-targets=generic src/q11_sycldbtiled.cpp -o bin/q11_sycldbtiled
+make benchmark
 ```
 
-To compile the native CUDA references:
+This runs `python3 scripts/bench_all.py` and writes measured output to `results/benchmark_data.json`.
+
+### Verify final results match across variants
+
 ```bash
-nvcc -O3 -arch=native src/q11_mordred.cu -o bin/q11_mordred
+make verify
 ```
 
-## Execution Options
+This runs `python3 scripts/verify_results.py`. It requires benchmark binaries to exist in `bin/`. In a fresh worktree without compiled binaries, the script fails explicitly with a missing-binary error rather than silently passing.
 
-Each compiled binary accepts flags for iteration counts and table inputs:
-- `-r <runs>`: Number of benchmark repetitions to execute to measure average and std-dev. Let convergence warm up.
-- `-p <path>`: Root directory containing the SSB SF100 binary columnar arrays (default: `/media/ssb/sf100_columnar`).
+### Generate measured plots
 
-**Example:**
 ```bash
-./bin/q21_sycldbtiled -r 10 -p /datasets/ssb/sf100
+make plot-measured
 ```
 
-## Key Findings & Core Takeaway
+This generates `results/measured_comparison.png` directly from `results/benchmark_data.json`.
 
-As detailed in `results/bottleneck_analysis.md`, the primary execution bottleneck for SSb queries across the board is **Global Memory Bandwidth**.
-The default `sycl::parallel_for` achieves perfect L1 caching but starves waiting for small thread transactions. By upgrading the SYCL implementation to explicitly map `ITEMS_PER_THREAD * BLOCK_THREADS` via `sycl::nd_range` with group-level reductions (`sycldbtiled`), we force optimal register placement across perfectly ordered 128-bit global load bursts. 
+## Direct Script Usage
 
-This explicit tiling approach allows pure C++ / SYCL to completely eclipse hand-written Native CUDA.
+Each main script supports explicit CLI configuration:
+
+```bash
+python3 scripts/bench_all.py --dataset /path/to/ssb --acpp /path/to/acpp --nvcc /path/to/nvcc --repetitions 10
+python3 scripts/run_adaptive.py --dataset /path/to/ssb --repetitions 10
+python3 scripts/verify_results.py --dataset /path/to/ssb --queries q11 q21
+python3 scripts/plot_measured.py
+```
+
+## Plotting Policy
+
+- `scripts/plot_measured.py` is the measured-data plotting entry point.
+- `scripts/plot_final.py` is presentation-only and uses synthetic or normalized values. Do not treat it as raw benchmark output.
+
+## Results And Analysis
+
+- `results/benchmark_data.json`: measured benchmark values and standard deviations
+- `results/measured_comparison.png`: measured comparison chart generated from JSON data
+- `results/bottleneck_analysis.md`: profiling-based narrative analysis
+
+## Notes
+
+This repository is an experiment and benchmark suite, not a reusable query engine. The kernels intentionally keep loading, execution, and timing close together so that execution-model differences remain easy to inspect.
