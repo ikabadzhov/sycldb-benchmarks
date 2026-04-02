@@ -5,6 +5,23 @@ from scripts import bench_all, plot_measured
 
 
 class BenchmarkPipelineTests(unittest.TestCase):
+    def test_source_mapping_uses_pattern_directories(self):
+        source = bench_all.resolve_sycl_source("q11", "standard", "Modular")
+        self.assertEqual(source.as_posix(), "src/standard/q11_modular.cpp")
+
+    def test_binary_name_stays_compatible_with_existing_prefixes(self):
+        binary = bench_all.resolve_binary_name("q21", "tiled", "JIT Fusion")
+        self.assertEqual(binary, "adp_q21_sycldbtiled")
+
+    def test_build_compile_commands_read_new_layout(self):
+        source = bench_all.resolve_sycl_source("q21", "coalesced", "Hardcoded")
+        self.assertEqual(source.as_posix(), "src/coalesced/q21_hardcoded.cpp")
+
+    def test_variant_labels_remain_compatible(self):
+        self.assertEqual(bench_all.PATTERN_SUFFIX["standard"], "sycldb")
+        self.assertEqual(bench_all.PATTERN_SUFFIX["coalesced"], "sycldbcoalesced")
+        self.assertEqual(bench_all.PATTERN_SUFFIX["tiled"], "sycldbtiled")
+
     def test_parse_benchmark_output_extracts_all_run_times(self):
         stdout = """
 Device: Mock GPU

@@ -17,16 +17,20 @@ from scripts.benchmark_config import (
 )
 
 
-VARIANTS = [
-    "q11_sycldb",
-    "q11_sycldbcoalesced",
-    "q11_sycldbtiled",
-    "q21_sycldb",
-    "q21_sycldbcoalesced",
-    "q21_sycldbtiled",
-]
-
-BINARY_PREFIX = {"Modular": "mod", "JIT Fusion": "adp", "Hardcoded": "hrd"}
+PATTERNS = ["standard", "coalesced", "tiled"]
+QUERIES = ["q11", "q21"]
+MODELS = ["Modular", "JIT Fusion", "Hardcoded"]
+PATTERN_SUFFIX = {
+    "standard": "sycldb",
+    "coalesced": "sycldbcoalesced",
+    "tiled": "sycldbtiled",
+}
+MODEL_PREFIX = {"Modular": "mod", "JIT Fusion": "adp", "Hardcoded": "hrd"}
+MODEL_FILENAME = {
+    "Modular": "modular",
+    "JIT Fusion": "adaptive",
+    "Hardcoded": "hardcoded",
+}
 RUN_TIME_RE = re.compile(r"(?:Run|Iteration)\s+\d+:\s*([\d\.]+)\s*ms")
 
 
@@ -48,6 +52,14 @@ def summarize_times(times_ms: list[float]) -> tuple[float | None, float | None]:
     return avg, variance ** 0.5
 
 
+def resolve_sycl_source(query: str, pattern: str, model: str) -> Path:
+    return Path("src") / pattern / f"{query}_{MODEL_FILENAME[model]}.cpp"
+
+
+def resolve_binary_name(query: str, pattern: str, model: str) -> str:
+    return f"{MODEL_PREFIX[model]}_{query}_{PATTERN_SUFFIX[pattern]}"
+
+
 def run_bench(cmd):
     print(f"Executing: {' '.join(cmd)}")
     process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
@@ -67,22 +79,23 @@ def run_bench(cmd):
 
 def build_compile_commands(acpp_path: str, nvcc_path: str) -> list[list[str]]:
     compile_cmds = []
-    for variant in VARIANTS:
-        for prefix, source_dir in (("adp", "adaptive"), ("mod", "modular"), ("hrd", "hardcoded")):
-            output = REPO_ROOT / "bin" / f"{prefix}_{variant}"
-            source = REPO_ROOT / "src" / source_dir / f"{variant}.cpp"
-            if needs_rebuild(output, source):
-                compile_cmds.append(
-                    [
-                        acpp_path,
-                        "-O3",
-                        "-std=c++20",
-                        "--acpp-targets=generic",
-                        str(source),
-                        "-o",
-                        str(output),
-                    ]
-                )
+    for query in QUERIES:
+        for pattern in PATTERNS:
+            for model in MODELS:
+                output = REPO_ROOT / "bin" / resolve_binary_name(query, pattern, model)
+                source = REPO_ROOT / resolve_sycl_source(query, pattern, model)
+                if needs_rebuild(output, source):
+                    compile_cmds.append(
+                        [
+                            acpp_path,
+                            "-O3",
+                            "-std=c++20",
+                            "--acpp-targets=generic",
+                            str(source),
+                            "-o",
+                            str(output),
+                        ]
+                    )
 
     utils_source = REPO_ROOT / "src" / "utils" / "sycl_ls.cpp"
     utils_output = REPO_ROOT / "bin" / "sycl_ls"
@@ -140,28 +153,29 @@ def main() -> int:
         for cmd in compile_cmds:
             subprocess.run(cmd, check=True, cwd=REPO_ROOT)
 
-    for variant in VARIANTS:
-        query_key = "Q1.1" if variant.startswith("q11") else "Q2.1"
-        for model_key, prefix in BINARY_PREFIX.items():
-            cmd = [
-                str(REPO_ROOT / "bin" / f"{prefix}_{variant}"),
-                "-r",
-                str(repetitions),
-                "-p",
-                dataset_path,
-            ]
-            if device_id is not None:
-                cmd.extend(["-d", str(device_id)])
-            times_ms = run_bench(cmd)
-            results[query_key][model_key].append(times_ms)
-            raw_data.append(
-                {
-                    "query": variant[:3],
-                    "variant": variant[4:],
-                    "model": model_key,
-                    "times_ms": times_ms or [],
-                }
-            )
+    for query in QUERIES:
+        query_key = "Q1.1" if query == "q11" else "Q2.1"
+        for pattern in PATTERNS:
+            for model_key in MODELS:
+                cmd = [
+                    str(REPO_ROOT / "bin" / resolve_binary_name(query, pattern, model_key)),
+                    "-r",
+                    str(repetitions),
+                    "-p",
+                    dataset_path,
+                ]
+                if device_id is not None:
+                    cmd.extend(["-d", str(device_id)])
+                times_ms = run_bench(cmd)
+                results[query_key][model_key].append(times_ms)
+                raw_data.append(
+                    {
+                        "query": query,
+                        "variant": PATTERN_SUFFIX[pattern],
+                        "model": model_key,
+                        "times_ms": times_ms or [],
+                    }
+                )
 
     for query_key, query in (("Q1.1", "q11"), ("Q2.1", "q21")):
         times_ms = run_bench(
