@@ -1,3 +1,9 @@
+"""
+Presentation-only chart.
+Uses synthetic or normalized numbers and must not be treated as raw measured output.
+See scripts/plot_measured.py for measured plots generated from results/benchmark_data.json.
+"""
+
 import matplotlib.pyplot as plt
 import numpy as np
 
