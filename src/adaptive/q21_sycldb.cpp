@@ -5,6 +5,7 @@
 #include <fstream>
 #include <string>
 #include <hipSYCL/sycl/jit.hpp>
+#include "../utils/sycl_device.hpp"
 
 namespace acpp_jit = sycl::AdaptiveCpp_jit;
 
@@ -62,6 +63,12 @@ void load_column(const std::string& path, T* ptr, size_t n) {
     f.read(reinterpret_cast<char*>(ptr), n * sizeof(T));
 }
 
+size_t get_file_rows(const std::string& path, size_t elem_size = 4) {
+    std::ifstream f(path, std::ios::binary | std::ios::ate);
+    if (!f) return 0;
+    return (size_t)f.tellg() / elem_size;
+}
+
 int main(int argc, char** argv) {
     int repetitions = 10;
     std::string ssb_path = "/media/ssb/s100_columnar";
@@ -70,8 +77,12 @@ int main(int argc, char** argv) {
         if (arg == "-r" && i + 1 < argc) repetitions = std::stoi(argv[++i]);
         else if (arg == "-p" && i + 1 < argc) ssb_path = argv[++i];
     }
-    sycl::queue q{sycl::default_selector_v};
-    size_t n_fact = 600043265, n_part = 200000, n_supp = 2000, n_date = 2556;
+    sycl::queue q = sycldb::make_queue_from_args(argc, argv);
+    std::cout << "Device: " << q.get_device().get_info<sycl::info::device::name>() << std::endl;
+    size_t n_fact = get_file_rows(ssb_path + "/LINEORDER5");
+    size_t n_part = get_file_rows(ssb_path + "/PART0");
+    size_t n_supp = get_file_rows(ssb_path + "/SUPPLIER0");
+    size_t n_date = get_file_rows(ssb_path + "/DDATE0");
 
     int *h_lo_date = (int*)malloc(n_fact * 4), *h_lo_part = (int*)malloc(n_fact * 4), *h_lo_supp = (int*)malloc(n_fact * 4), *h_lo_rev = (int*)malloc(n_fact * 4);
     load_column(ssb_path + "/LINEORDER5", h_lo_date, n_fact); load_column(ssb_path + "/LINEORDER3", h_lo_part, n_fact);
@@ -89,20 +100,20 @@ int main(int argc, char** argv) {
     q.memcpy(d_lo_date, h_lo_date, n_fact*4); q.memcpy(d_lo_part, h_lo_part, n_fact*4);
     q.memcpy(d_lo_supp, h_lo_supp, n_fact*4); q.memcpy(d_lo_rev, h_lo_rev, n_fact*4);
 
-    bool *d_p_filter = sycl::malloc_device<bool>(1400000 + 1, q); int *d_p_brand = sycl::malloc_device<int>(1400000 + 1, q);
-    bool *d_s_filter = sycl::malloc_device<bool>(200000 + 1, q);
-    const int D_MIN = 19920101, D_RANGE = 2556;
+    bool *d_p_filter = sycl::malloc_device<bool>(n_part + 1, q); int *d_p_brand = sycl::malloc_device<int>(n_part + 1, q);
+    bool *d_s_filter = sycl::malloc_device<bool>(n_supp + 1, q);
+    const int D_MIN = 19920101, D_RANGE = 19981231 - 19920101 + 1;
     int *d_year_map = sycl::malloc_device<int>(D_RANGE, q);
-    q.fill(d_p_filter, false, 1400000+1); q.fill(d_s_filter, false, 200000+1); q.fill(d_year_map, 0, D_RANGE).wait();
+    q.fill(d_p_filter, false, n_part + 1); q.fill(d_s_filter, false, n_supp + 1); q.fill(d_year_map, 0, D_RANGE).wait();
 
     int *dt1 = sycl::malloc_device<int>(n_part, q), *dt2 = sycl::malloc_device<int>(n_part, q), *dt3 = sycl::malloc_device<int>(n_part, q);
     q.memcpy(dt1, h_p_key, n_part*4); q.memcpy(dt2, h_p_cat, n_part*4); q.memcpy(dt3, h_brand, n_part*4);
-    q.parallel_for(n_part, [=](auto i){ int k=dt1[i]; if(k>=0 && k<=1400000){ d_p_filter[k]=(dt2[i]==1); d_p_brand[k]=dt3[i]; } }).wait();
+    q.parallel_for(n_part, [=](auto i){ int k=dt1[i]; if(k>=0 && k<=(int)n_part){ d_p_filter[k]=(dt2[i]==1); d_p_brand[k]=dt3[i]; } }).wait();
     q.memcpy(dt1, h_s_key, n_supp*4); q.memcpy(dt2, h_s_reg, n_supp*4);
-    q.parallel_for(n_supp, [=](auto i){ int k=dt1[i]; if(k>=0 && k<=200000) d_s_filter[k]=(dt2[i]==1); }).wait();
+    q.parallel_for(n_supp, [=](auto i){ int k=dt1[i]; if(k>=0 && k<=(int)n_supp) d_s_filter[k]=(dt2[i]==1); }).wait();
     int *dt4 = sycl::malloc_device<int>(n_date, q), *dt5 = sycl::malloc_device<int>(n_date, q);
     q.memcpy(dt4, h_d_key, n_date * 4); q.memcpy(dt5, h_d_year, n_date * 4);
-    q.parallel_for(n_date, [=](auto i){ int k=dt4[i]; if(k>=D_MIN && k<D_MIN+D_RANGE) d_year_map[k-D_MIN]=dt5[i]; }).wait();
+    q.parallel_for(n_date, [=](auto i){ int k=dt4[i]; if(k>=D_MIN && k<=D_MIN + D_RANGE - 1) d_year_map[k-D_MIN]=dt5[i]; }).wait();
     sycl::free(dt1, q); sycl::free(dt2, q); sycl::free(dt3, q); sycl::free(dt4, q); sycl::free(dt5, q);
 
     uint64_t *d_res_agg = sycl::malloc_device<uint64_t>(1000, q);
@@ -128,18 +139,24 @@ int main(int argc, char** argv) {
     run_kernel(); // Warmup and JIT trigger
 
     std::vector<double> times;
-    for(int i=0; i<10; ++i) {
+    for(int i=0; i<repetitions; ++i) {
         q.fill(d_res_agg, 0ULL, 1000);
         q.fill(d_res_flags, 0u, 1000).wait();
         auto start = std::chrono::high_resolution_clock::now();
         run_kernel();
         auto end = std::chrono::high_resolution_clock::now();
-        times.push_back(std::chrono::duration<double, std::milli>(end - start).count());
+        double t = std::chrono::duration<double, std::milli>(end - start).count();
+        times.push_back(t);
+        std::cout << "Run " << i << ": " << t << " ms" << std::endl;
     }
     double total = 0; for(auto t : times) total += t;
-    double avg = total / 10.0;
+    double avg = total / times.size();
     double var = 0; for(auto t : times) var += (t-avg)*(t-avg);
-    double stddev = std::sqrt(var/10.0);
+    double stddev = std::sqrt(var/times.size());
+    std::vector<uint64_t> final_agg(1000);
+    q.memcpy(final_agg.data(), d_res_agg, 1000 * sizeof(uint64_t)).wait();
+    uint64_t final_res = 0; for(auto v : final_agg) final_res += v;
     std::cout << "Avg: " << avg << " ms, StdDev: " << stddev << " ms" << std::endl;
+    std::cout << "Final result: " << final_res << std::endl;
     return 0;
 }

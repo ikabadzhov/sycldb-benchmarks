@@ -6,6 +6,7 @@
 #include <string>
 #include <cmath>
 #include <algorithm>
+#include "../utils/sycl_device.hpp"
 
 /**
  * SSB Q2.1 Standalone Benchmark (Hardcoded SYCL Coalesced / Vector Fetch)
@@ -143,7 +144,7 @@ int main(int argc, char** argv) {
         if (arg == "-r" && i + 1 < argc) repetitions = std::stoi(argv[++i]);
         else if (arg == "-p" && i + 1 < argc) ssb_path = argv[++i];
     }
-    sycl::queue q{sycl::default_selector_v};
+    sycl::queue q = sycldb::make_queue_from_args(argc, argv);
     std::cout << "Device: " << q.get_device().get_info<sycl::info::device::name>() << std::endl;
 
     size_t n_fact = get_file_rows(ssb_path + "/LINEORDER5");
@@ -225,7 +226,11 @@ int main(int argc, char** argv) {
 
     double avg = 0; for(auto t : times) avg += t; avg /= times.size();
     double var = 0; for(auto t : times) var += (t-avg)*(t-avg); double stddev = std::sqrt(var/times.size());
+    std::vector<uint64_t> final_agg(num_buckets);
+    q.memcpy(final_agg.data(), d_res_agg, num_buckets * sizeof(uint64_t)).wait();
+    uint64_t final_res = 0; for(auto v : final_agg) final_res += v;
     std::cout << "Execution time over " << repetitions << " repetitions - Avg: " << avg << " ms, StdDev: " << stddev << " ms" << std::endl;
+    std::cout << "Final result: " << final_res << std::endl;
 
     return 0;
 }
