@@ -3,140 +3,140 @@
         "query": "q11",
         "variant": "sycldb",
         "model": "Modular",
-        "avg_ms": 18.2794,
-        "stddev_ms": 0.0197333
+        "avg_ms": 18.2926,
+        "stddev_ms": 0.0
     },
     {
         "query": "q11",
         "variant": "sycldb",
         "model": "JIT Fusion",
-        "avg_ms": 7.69224,
-        "stddev_ms": 0.00384043
+        "avg_ms": 7.69397,
+        "stddev_ms": 0.0
     },
     {
         "query": "q11",
         "variant": "sycldb",
         "model": "Hardcoded",
-        "avg_ms": 10.2337,
-        "stddev_ms": 0.00325125
+        "avg_ms": 10.2329,
+        "stddev_ms": 0.0
     },
     {
         "query": "q11",
         "variant": "sycldbcoalesced",
         "model": "Modular",
-        "avg_ms": 17.0421,
-        "stddev_ms": 0.0111415
+        "avg_ms": 17.0447,
+        "stddev_ms": 0.0
     },
     {
         "query": "q11",
         "variant": "sycldbcoalesced",
         "model": "JIT Fusion",
-        "avg_ms": 12.8435,
-        "stddev_ms": 0.00766761
+        "avg_ms": 12.8347,
+        "stddev_ms": 0.0
     },
     {
         "query": "q11",
         "variant": "sycldbcoalesced",
         "model": "Hardcoded",
-        "avg_ms": 6.84507,
-        "stddev_ms": 0.00246004
+        "avg_ms": 6.84651,
+        "stddev_ms": 0.0
     },
     {
         "query": "q11",
         "variant": "sycldbtiled",
         "model": "Modular",
-        "avg_ms": 9.15889,
-        "stddev_ms": 0.00361448
+        "avg_ms": 9.16208,
+        "stddev_ms": 0.0
     },
     {
         "query": "q11",
         "variant": "sycldbtiled",
         "model": "JIT Fusion",
-        "avg_ms": 7.69336,
-        "stddev_ms": 0.00264742
+        "avg_ms": 7.69488,
+        "stddev_ms": 0.0
     },
     {
         "query": "q11",
         "variant": "sycldbtiled",
         "model": "Hardcoded",
-        "avg_ms": 6.02303,
-        "stddev_ms": 0.00249764
+        "avg_ms": 6.04472,
+        "stddev_ms": 0.0
     },
     {
         "query": "q21",
         "variant": "sycldb",
         "model": "Modular",
-        "avg_ms": 15.6764,
-        "stddev_ms": 0.00375984
+        "avg_ms": 15.6935,
+        "stddev_ms": 0.0
     },
     {
         "query": "q21",
         "variant": "sycldb",
         "model": "JIT Fusion",
-        "avg_ms": 6.60502,
-        "stddev_ms": 0.00191318
+        "avg_ms": 7.51402,
+        "stddev_ms": 0.0
     },
     {
         "query": "q21",
         "variant": "sycldb",
         "model": "Hardcoded",
-        "avg_ms": 7.88191,
-        "stddev_ms": 0.00210862
+        "avg_ms": 7.88104,
+        "stddev_ms": 0.0
     },
     {
         "query": "q21",
         "variant": "sycldbcoalesced",
         "model": "Modular",
-        "avg_ms": 12.4189,
-        "stddev_ms": 0.0515393
+        "avg_ms": 12.4465,
+        "stddev_ms": 0.0
     },
     {
         "query": "q21",
         "variant": "sycldbcoalesced",
         "model": "JIT Fusion",
-        "avg_ms": 12.9814,
-        "stddev_ms": 0.004965
+        "avg_ms": 13.0185,
+        "stddev_ms": 0.0
     },
     {
         "query": "q21",
         "variant": "sycldbcoalesced",
         "model": "Hardcoded",
-        "avg_ms": 7.73784,
-        "stddev_ms": 0.00228151
+        "avg_ms": 7.75793,
+        "stddev_ms": 0.0
     },
     {
         "query": "q21",
         "variant": "sycldbtiled",
         "model": "Modular",
-        "avg_ms": 15.3763,
-        "stddev_ms": 0.00293179
+        "avg_ms": 15.3855,
+        "stddev_ms": 0.0
     },
     {
         "query": "q21",
         "variant": "sycldbtiled",
         "model": "JIT Fusion",
-        "avg_ms": 6.60863,
-        "stddev_ms": 0.00247665
+        "avg_ms": 7.71803,
+        "stddev_ms": 0.0
     },
     {
         "query": "q21",
         "variant": "sycldbtiled",
         "model": "Hardcoded",
-        "avg_ms": 7.71931,
-        "stddev_ms": 0.00251902
+        "avg_ms": 7.71795,
+        "stddev_ms": 0.0
     },
     {
         "query": "q11",
         "variant": "mordred",
         "model": "CUDA",
-        "avg_ms": 9.12103,
-        "stddev_ms": 0.0506469
+        "avg_ms": 9.14125,
+        "stddev_ms": 0.0
     },
     {
         "query": "q21",
         "variant": "mordred",
         "model": "CUDA",
-        "avg_ms": 8.54732,
-        "stddev_ms": 0.0169204
+        "avg_ms": 8.84019,
+        "stddev_ms": 0.0
     }
 ]

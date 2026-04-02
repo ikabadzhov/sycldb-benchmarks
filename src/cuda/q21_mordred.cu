@@ -115,7 +115,7 @@ __global__ void build_ht_d(const int* __restrict__ d_datekey, const int* __restr
             items_year[i] = d_year[idx];
             
             int hash = items_datekey[i] - val_min;
-            if (hash >= 0 && hash * 2 + 1 < 100000) {
+            if (hash >= 0 && hash * 2 + 1 < 2 * (19981231 - 19920101 + 1)) {
                 ht_d[hash * 2] = items_datekey[i];
                 ht_d[hash * 2 + 1] = items_year[i];
             }
@@ -193,7 +193,7 @@ __global__ void probe_q21(const int* __restrict__ lo_orderdate,
         if (idx < tile_offset + num_tile_items && selection_flags[i]) {
             items_orderdate[i] = lo_orderdate[idx];
             int hash = items_orderdate[i] - 19920101;
-            if (hash >= 0 && hash < 50000) {
+            if (hash >= 0 && hash < (19981231 - 19920101 + 1)) {
                 int match = ht_d[hash * 2];
                 if (match != 0) {
                     years[i] = ht_d[hash * 2 + 1];
@@ -326,8 +326,16 @@ int main(int argc, char** argv) {
 
     double avg = 0; for(auto t : times) avg += t; avg /= times.size();
     double var = 0; for(auto t : times) var += (t-avg)*(t-avg); double stddev = std::sqrt(var/times.size());
-
+    std::vector<int> final_res(res_size);
+    CUDA_CHECK(cudaMemcpy(final_res.data(), d_res, res_size * sizeof(int), cudaMemcpyDeviceToHost));
+    unsigned long long final_sum = 0;
+    for (size_t i = 0; i < final_res.size(); i += 4) {
+        unsigned long long low = static_cast<unsigned int>(final_res[i + 2]);
+        unsigned long long high = static_cast<unsigned int>(final_res[i + 3]);
+        final_sum += low | (high << 32);
+    }
     std::cout << "Execution time over " << repetitions << " repetitions - Avg: " << avg << " ms, StdDev: " << stddev << " ms" << std::endl;
+    std::cout << "Final result: " << final_sum << std::endl;
 
     return 0;
 }

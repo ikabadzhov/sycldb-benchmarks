@@ -192,7 +192,11 @@ int main(int argc, char** argv) {
     double avg = 0; for(auto t : times) avg += t; avg /= times.size();
     double var = 0; for(auto t : times) var += (t-avg)*(t-avg); double stddev = std::sqrt(var/times.size());
 
+    std::vector<uint64_t> final_agg(num_buckets);
+    q.memcpy(final_agg.data(), d_res_agg, num_buckets * sizeof(uint64_t)).wait();
+    uint64_t final_res = 0; for(auto v : final_agg) final_res += v;
     std::cout << "Execution time over " << repetitions << " repetitions - Avg: " << avg << " ms, StdDev: " << stddev << " ms" << std::endl;
+    std::cout << "Final result: " << final_res << std::endl;
 
     return 0;
 }

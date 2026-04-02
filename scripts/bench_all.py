@@ -28,6 +28,12 @@ VARIANTS = [
 BINARY_PREFIX = {"Modular": "mod", "JIT Fusion": "adp", "Hardcoded": "hrd"}
 
 
+def needs_rebuild(output_path, source_path):
+    if not output_path.exists():
+        return True
+    return source_path.stat().st_mtime > output_path.stat().st_mtime
+
+
 def run_bench(cmd):
     print(f"Executing: {' '.join(cmd)}")
     process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
@@ -68,14 +74,15 @@ compile_cmds = []
 for b in VARIANTS:
     for prefix, source_dir in (("adp", "adaptive"), ("mod", "modular"), ("hrd", "hardcoded")):
         output = REPO_ROOT / "bin" / f"{prefix}_{b}"
-        if not output.exists():
+        source = REPO_ROOT / "src" / source_dir / f"{b}.cpp"
+        if needs_rebuild(output, source):
             compile_cmds.append(
                 [
                     acpp_path,
                     "-O3",
                     "-std=c++20",
                     "--acpp-targets=generic",
-                    f"src/{source_dir}/{b}.cpp",
+                    str(source),
                     "-o",
                     str(output),
                 ]
@@ -83,13 +90,14 @@ for b in VARIANTS:
 
 for query in ("q11", "q21"):
     output = REPO_ROOT / "bin" / f"mrd_{query}"
-    if not output.exists():
+    source = REPO_ROOT / "src" / "cuda" / f"{query}_mordred.cu"
+    if needs_rebuild(output, source):
         compile_cmds.append(
             [
                 nvcc_path,
                 "-O3",
                 "-arch=native",
-                f"src/cuda/{query}_mordred.cu",
+                str(source),
                 "-o",
                 str(output),
             ]

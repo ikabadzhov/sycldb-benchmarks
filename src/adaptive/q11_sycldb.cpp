@@ -45,7 +45,13 @@ void load_column(const std::string& path, T* ptr, size_t n) {
 }
 
 int main(int argc, char** argv) {
+    int repetitions = 10;
     std::string ssb_path = "/media/ssb/s100_columnar";
+    for (int i = 1; i < argc; ++i) {
+        std::string arg = argv[i];
+        if (arg == "-r" && i + 1 < argc) repetitions = std::stoi(argv[++i]);
+        else if (arg == "-p" && i + 1 < argc) ssb_path = argv[++i];
+    }
     size_t n = 600043265;
     sycl::queue q{sycl::default_selector_v};
     int *d_date = sycl::malloc_device<int>(n, q), *d_disc = sycl::malloc_device<int>(n, q), *d_quant = sycl::malloc_device<int>(n, q), *d_price = sycl::malloc_device<int>(n, q);
@@ -73,7 +79,7 @@ int main(int argc, char** argv) {
     run_kernel(); // Warmup and JIT trigger
 
     std::vector<double> times;
-    for(int i=0; i<10; ++i) {
+    for(int i=0; i<repetitions; ++i) {
         q.fill(d_res, 0ULL, 1).wait();
         auto start = std::chrono::high_resolution_clock::now();
         run_kernel();
@@ -81,9 +87,11 @@ int main(int argc, char** argv) {
         times.push_back(std::chrono::duration<double, std::milli>(end - start).count());
     }
     double total = 0; for(auto t : times) total += t;
-    double avg = total / 10.0;
+    double avg = total / times.size();
     double var = 0; for(auto t : times) var += (t-avg)*(t-avg);
-    double stddev = std::sqrt(var/10.0);
+    double stddev = std::sqrt(var/times.size());
+    uint64_t final_res = 0; q.memcpy(&final_res, d_res, sizeof(uint64_t)).wait();
     std::cout << "Avg: " << avg << " ms, StdDev: " << stddev << " ms" << std::endl;
+    std::cout << "Final result: " << final_res << std::endl;
     return 0;
 }
